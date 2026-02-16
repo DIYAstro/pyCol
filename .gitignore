@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / Packaging
+build/
+dist/
+*.spec
+*.exe
+*.AppImage
+appimagetool-x86_64.AppImage
+
+# Virtual Environments
+venv/
+env/
+.env
+.venv_build/
+
+# IDE Settings
+.vscode/
+.idea/
+*.swp
+
+# OS Generated
+Thumbs.db
+Desktop.ini
+.DS_Store
+AppDir/
+
+# Application Logs/Data
+*.log
+*.bak
+*.tmp
+*.orig
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Agent & Planning (Local only)
+.agent/
