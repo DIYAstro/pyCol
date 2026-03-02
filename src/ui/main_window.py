@@ -250,6 +250,7 @@ class MainWindow(QMainWindow):
         # Use QueuedConnection to ensure error dialog runs on main thread
         self.thread.camera_error_signal.connect(self.on_camera_error, Qt.QueuedConnection)
         self.thread.camera_capabilities_signal.connect(self.sec_camera.update_capabilities, Qt.QueuedConnection)
+        self.thread.camera_info_signal.connect(self.sec_camera.update_camera_info, Qt.QueuedConnection)
         self.thread.snapshot_saved_signal.connect(self.on_snapshot_saved, Qt.QueuedConnection)
         self.thread.start()
 

@@ -16,6 +16,7 @@ class CameraThread(QThread):
     camera_capabilities_signal = Signal(dict) # Emit supported features {'focus': bool, 'exposure': bool}
     snapshot_saved_signal = Signal(str) # Emit path when snapshot saved
     global_offset_changed = Signal(float, float) # Emit (offset_x, offset_y) when global offsets change
+    camera_info_signal = Signal(str) # Emit active resolution + format string
 
     def __init__(self, camera_id=0, plugin_manager=None):
         super().__init__()
@@ -108,14 +109,16 @@ class CameraThread(QThread):
              self.cap = None
              return False
         
-        # Set high res
+        # Request maximum resolution (camera will negotiate to its native max)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 3840)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 2160)
         
-        # Get actual resolution
+        # Get actual (negotiated) resolution
         actual_w = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         actual_h = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        
         _logger.info(f"Camera {self.camera_id} ready ({actual_w}x{actual_h})")
+        self.camera_info_signal.emit(f"{actual_w}x{actual_h}")
         
         # Check capabilities (Focus/Exposure support)
         caps = self.get_capabilities()

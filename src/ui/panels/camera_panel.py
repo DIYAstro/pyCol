@@ -68,6 +68,10 @@ class CameraPanel(CollapsibleSection):
         
         self.combo_camera.currentIndexChanged.connect(self.change_camera)
         
+        # Camera Info Label (shows active resolution + format)
+        self.lbl_camera_info = QLabel("")
+        self.lbl_camera_info.setStyleSheet("color: gray; font-size: 11px;")
+        
         # Exposure: Integer -13 to 0
         # Exposure: Log2 scale (-13.0 to 0.0)
         self.lbl_exposure = QLabel("Exposure (Log2):")
@@ -125,6 +129,7 @@ class CameraPanel(CollapsibleSection):
         # Add widgets to content layout (layout inherited from CollapsibleSection)
         self.addWidget(self.lbl_cam_select)
         self.addWidget(self.combo_camera)
+        self.addWidget(self.lbl_camera_info)
         self.addWidget(self.lbl_exposure)
         self.addWidget(self.slider_exposure)
         self.addWidget(self.lbl_focus)
@@ -152,6 +157,10 @@ class CameraPanel(CollapsibleSection):
             cam_idx = self.combo_camera.itemData(index)
             if cam_idx != -1:
                 self.thread.switch_camera(cam_idx)
+
+    def update_camera_info(self, info: str):
+        """Update the camera info label with active resolution + format."""
+        self.lbl_camera_info.setText(f"Active: {info}")
 
     def update_exposure(self, val: float):
         """Update camera exposure setting."""
