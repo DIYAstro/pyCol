@@ -36,9 +36,9 @@
 2. Run the installer or use the portable `pyCol.exe`.
 
 ### 🐧 Linux
-Download the `pyCol-x86_64.AppImage` from [Releases](../../releases).
-1. Make the file executable: `chmod +x pyCol-x86_64.AppImage`
-2. Run it! No installation required.
+Linux support via AppImage is theoretically possible and an experimental build script exists. However, **AppImage builds are currently not available in the releases** as the process is not yet fully tested.
+
+For now, please run pyCol from source on Linux (see [Technical Info](#-running-from-source) below).
 
 ---
 
