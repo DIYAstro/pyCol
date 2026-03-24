@@ -435,8 +435,15 @@ class MainWindow(QMainWindow):
         self.logger.info(f"Python: {platform.python_version()}, OpenCV: {cv2.__version__}, PySide6: {pyside_version}")
         
         # Redirect OpenCV errors to logger
-        def cv_log_callback(status, func_name, err_msg, file_name, line, userdata):
-            self.logger.warning(f"OpenCV Native: {func_name} - {err_msg} ({file_name}:{line})")
+        def cv_log_callback(*args):
+            try:
+                func_name = args[1] if len(args) > 1 else "Unknown"
+                err_msg = args[2] if len(args) > 2 else "Unknown error"
+                file = args[3] if len(args) > 3 else ""
+                line = args[4] if len(args) > 4 else 0
+                self.logger.warning(f"OpenCV Native: {func_name} - {err_msg} ({file}:{line})")
+            except Exception:
+                pass
             return 0 # Allow default behavior? Or 1 to suppress?
             
         cv2.redirectError(cv_log_callback)
@@ -592,6 +599,14 @@ class MainWindow(QMainWindow):
                     self.thread.switch_camera(cam["id"])
             self.sec_camera.combo_camera.blockSignals(False)
             
+        if "format" in cam:
+            self.sec_camera.combo_format.blockSignals(True)
+            idx = self.sec_camera.combo_format.findText(cam["format"])
+            if idx >= 0:
+                self.sec_camera.combo_format.setCurrentIndex(idx)
+            self.sec_camera.combo_format.blockSignals(False)
+            self.thread.set_format(cam["format"])
+            
         if "exposure" in cam:
             self.sec_camera.slider_exposure.setValue(cam["exposure"])
         if "focus" in cam:
@@ -698,6 +713,7 @@ class MainWindow(QMainWindow):
             "active_profile": self.active_profile_name,
             "camera": {
                 "id": self.sec_camera.combo_camera.currentData(),
+                "format": self.thread.format_val,
                 "exposure": self.thread.exposure_val,
                 # Zoom is not saved
                 "focus": self.thread.focus_val,

@@ -42,6 +42,8 @@ class CameraThread(QThread):
         self.zoom_focus_x = 0.5
         self.zoom_focus_y = 0.5
         
+        self.format_val = "Auto"
+        
         # Detection Toggle
         self.detection_active = False
         
@@ -109,21 +111,44 @@ class CameraThread(QThread):
              self.cap = None
              return False
         
-        # Request maximum resolution (camera will negotiate to its native max)
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 3840)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 2160)
+        # Set resolution FIRST. Webcams often reject a FOURCC if the *current* default resolution (e.g. 640x480) doesn't support it.
+        w_set = self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 3840)
+        h_set = self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 2160)
+        fps_set = self.cap.set(cv2.CAP_PROP_FPS, 30)
+        
+        # Then set FOURCC format if specified
+        fourcc_set = True
+        if self.format_val == "MJPG":
+            fourcc_set = self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+        elif self.format_val == "YUYV":
+            fourcc_set = self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'YUYV'))
+            
+        _logger.info(f"Init Config set success: Width={w_set}, Height={h_set}, FPS={fps_set}, FOURCC={fourcc_set}")
+
         
         # Get actual (negotiated) resolution
         actual_w = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         actual_h = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        self.actual_w = actual_w
+        self.actual_h = actual_h
+        actual_fps = self.cap.get(cv2.CAP_PROP_FPS)
         
-        _logger.info(f"Camera {self.camera_id} ready ({actual_w}x{actual_h})")
-        self.camera_info_signal.emit(f"{actual_w}x{actual_h}")
+        try:
+            actual_fourcc = int(self.cap.get(cv2.CAP_PROP_FOURCC))
+            fourcc_str = "".join([chr((actual_fourcc >> 8 * i) & 0xFF) for i in range(4)])
+        except:
+            fourcc_str = "Unknown"
+        
+        _logger.info(f"Camera 1 ready ({actual_w}x{actual_h}) @ {actual_fps}FPS [Format: {fourcc_str}]")
+        self.camera_info_signal.emit(f"{actual_w}x{actual_h} {fourcc_str}")
         
         # Check capabilities (Focus/Exposure support)
         caps = self.get_capabilities()
         self.camera_capabilities_signal.emit(caps)
         _logger.info(f"Camera capabilities: {caps}")
+
+        self._current_exposure = None
+        self._current_focus = None
 
         self.update_camera_settings()
         return True
@@ -231,9 +256,10 @@ class CameraThread(QThread):
                 
             try:
                 ret, cv_img = self.cap.read()
-                if not ret or cv_img is None:
+                if not ret or cv_img is None or cv_img.size == 0:
                     consecutive_failures += 1
                     if consecutive_failures >= max_failures:
+
                         self.camera_error_signal.emit(f"Camera {self.camera_id} stopped responding after {max_failures} failed reads.")
                         self.cap.release()
                         self.cap = None
@@ -335,10 +361,10 @@ class CameraThread(QThread):
 
                 # --- LEGACY CODE REMOVED HERE ---
                 
-                rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
-                h, w, ch = rgb_image.shape
-                bytes_per_line = ch * w
-                convert_to_qt_format = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
+                # OPTIMIZATION: Skip BGR2RGB conversion, use Qt's native BGR888
+                h, w, ch = cv_img.shape
+                bytes_per_line = cv_img.strides[0]
+                convert_to_qt_format = QImage(cv_img.data, w, h, bytes_per_line, QImage.Format_BGR888)
                 
                 # Debug logging (temporary)
                 _logger.debug(f"Emitting frame: {w}x{h}, {convert_to_qt_format.sizeInBytes()} bytes, null={convert_to_qt_format.isNull()}")
@@ -362,18 +388,18 @@ class CameraThread(QThread):
     def update_camera_settings(self):
         if not self.cap: return
 
-        # Exposure (only set if changed)
-        current_exposure = self.cap.get(cv2.CAP_PROP_EXPOSURE)
-        if current_exposure != self.exposure_val:
+        # Exposure (only set if changed locally rather than polling slow USB bus every frame)
+        if getattr(self, '_current_exposure', None) != self.exposure_val:
             self.cap.set(cv2.CAP_PROP_EXPOSURE, self.exposure_val)
+            self._current_exposure = self.exposure_val
 
         # Focus (disable autofocus first, then set manual value, only if changed)
         if self.focus_val >= 0:
-            current_focus = self.cap.get(cv2.CAP_PROP_FOCUS)
-            # Use tolerance for float comparison to avoid infinite loop spam
-            if abs(current_focus - self.focus_val) > 0.1:
+            current_f = getattr(self, '_current_focus', None)
+            if current_f is None or abs(current_f - self.focus_val) > 0.1:
                 self.cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
                 self.cap.set(cv2.CAP_PROP_FOCUS, self.focus_val)
+                self._current_focus = self.focus_val
              
     def set_exposure(self, val):
         self.exposure_val = val
@@ -381,6 +407,16 @@ class CameraThread(QThread):
     def set_focus(self, val):
         self.focus_val = val
         
+    def set_format(self, val):
+        if self.format_val != val:
+            self.format_val = val
+            self._camera_needs_init = True
+
+    def open_hardware_settings(self):
+        """Open the native Windows camera driver dialog."""
+        if self.cap and self.cap.isOpened():
+            self.cap.set(cv2.CAP_PROP_SETTINGS, 1)
+            
     def set_zoom(self, val):
         self.zoom_val = val
         

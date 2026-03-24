@@ -20,6 +20,7 @@ class Collimator:
         self.threshold = 100
         self.invert = False
         self.blur = False
+        self.show_global_crosshair = False # User requested to disable by default
         self.debug_contours = [] # For visualization
         
         # Predefined colors (16 colors matching UI, BGR format)
@@ -245,47 +246,46 @@ class Collimator:
         world_center_x = orig_w / 2 + self.global_offset_x
         world_center_y = orig_h / 2 + self.global_offset_y
         
-        # --- 1. Draw Global Crosshair ---
-        # Transform World Center -> Screen
-        screen_cx, screen_cy = to_screen(world_center_x, world_center_y)
-        
-        # Draw Crosshair
-        # Note: Check bounds to avoid integer overflow in cv2.line with large coordinates
-        # Use int for drawing
-        dcx, dcy = int(screen_cx), int(screen_cy)
-        
-        color_cross = (0, 0, 255) # BGR
-        
-        # Draw Vertical Line using clipLine for robustness against overflow
-        safe_dcx = max(-20000, min(20000, dcx))
-        # Define a long vertical segment, clipped to image rect
-        # The rect is defined by (x, y, w, h)
-        rect = (0, 0, w, h)
-        
         # Calculate thickness scale based on resolution to avoid display aliasing
         # At 4K, 1px lines disappear when downscaled to 1080p display
-        # Base resolution: ~1500px (HD-ish) -> Scale 1.0
-        # 4K (3840px) -> Scale ~2.5
         thickness_scale = max(1.0, max(w, h) / 1500.0)
-        cross_thickness = int(1 * thickness_scale) # Base thickness 1 for crosshair
         
-        # Vertical Line: (safe_dcx, -10000) to (safe_dcx, h+10000)
-        # We clamp Y coordinates to avoid overflow too, even though clipLine handles them
-        pt1 = (safe_dcx, -20000)
-        pt2 = (safe_dcx, h + 20000)
-        
-        ret, p1_out, p2_out = cv2.clipLine(rect, pt1, pt2)
-        if ret:
-            cv2.line(frame, p1_out, p2_out, color_cross, cross_thickness)
-
-        # Draw Horizontal Line
-        safe_dcy = max(-20000, min(20000, dcy))
-        pt1 = (-20000, safe_dcy)
-        pt2 = (w + 20000, safe_dcy)
-        
-        ret, p1_out, p2_out = cv2.clipLine(rect, pt1, pt2)
-        if ret:
-            cv2.line(frame, p1_out, p2_out, color_cross, cross_thickness)
+        # --- 1. Draw Global Crosshair ---
+        if getattr(self, 'show_global_crosshair', False):
+            # Transform World Center -> Screen
+            screen_cx, screen_cy = to_screen(world_center_x, world_center_y)
+            
+            # Draw Crosshair
+            # Note: Check bounds to avoid integer overflow in cv2.line with large coordinates
+            # Use int for drawing
+            dcx, dcy = int(screen_cx), int(screen_cy)
+            
+            color_cross = (0, 0, 255) # BGR
+            
+            # Draw Vertical Line using clipLine for robustness against overflow
+            safe_dcx = max(-20000, min(20000, dcx))
+            # Define a long vertical segment, clipped to image rect
+            # The rect is defined by (x, y, w, h)
+            rect = (0, 0, w, h)
+            
+            cross_thickness = int(1 * thickness_scale) # Base thickness 1 for crosshair
+            
+            # Vertical Line: (safe_dcx, -10000) to (safe_dcx, h+10000)
+            pt1 = (safe_dcx, -20000)
+            pt2 = (safe_dcx, h + 20000)
+            
+            ret, p1_out, p2_out = cv2.clipLine(rect, pt1, pt2)
+            if ret:
+                cv2.line(frame, p1_out, p2_out, color_cross, cross_thickness)
+    
+            # Draw Horizontal Line
+            safe_dcy = max(-20000, min(20000, dcy))
+            pt1 = (-20000, safe_dcy)
+            pt2 = (w + 20000, safe_dcy)
+            
+            ret, p1_out, p2_out = cv2.clipLine(rect, pt1, pt2)
+            if ret:
+                cv2.line(frame, p1_out, p2_out, color_cross, cross_thickness)
         
         # 1.5 Debug Contours (Cyan)
         if self.debug_contours:

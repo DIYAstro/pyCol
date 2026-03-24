@@ -68,6 +68,12 @@ class CameraPanel(CollapsibleSection):
         
         self.combo_camera.currentIndexChanged.connect(self.change_camera)
         
+        # Format Selection
+        self.lbl_format = QLabel("Video Format:")
+        self.combo_format = QComboBox()
+        self.combo_format.addItems(["Auto", "MJPG", "YUYV"])
+        self.combo_format.currentTextChanged.connect(self.update_format)
+        
         # Camera Info Label (shows active resolution + format)
         self.lbl_camera_info = QLabel("")
         self.lbl_camera_info.setStyleSheet("color: gray; font-size: 11px;")
@@ -125,10 +131,17 @@ class CameraPanel(CollapsibleSection):
         # Reset Button
         self.btn_reset = QPushButton("Reset Camera Settings")
         self.btn_reset.clicked.connect(self.reset_camera_settings)
+
+        # Hardware Settings Button
+        self.btn_hw_settings = QPushButton("Open Driver Settings", self)
+        self.btn_hw_settings.setToolTip("Open the native Windows camera settings dialog (DirectShow) to force formats manually.")
+        self.btn_hw_settings.clicked.connect(self._on_hw_settings_clicked)
         
         # Add widgets to content layout (layout inherited from CollapsibleSection)
         self.addWidget(self.lbl_cam_select)
         self.addWidget(self.combo_camera)
+        self.addWidget(self.lbl_format)
+        self.addWidget(self.combo_format)
         self.addWidget(self.lbl_camera_info)
         self.addWidget(self.lbl_exposure)
         self.addWidget(self.slider_exposure)
@@ -148,6 +161,7 @@ class CameraPanel(CollapsibleSection):
         container.setLayout(self.layout_flip)
         self.addWidget(container)
         self.addWidget(self.btn_reset)
+        self.addWidget(self.btn_hw_settings) # Add the new button here
         
         self.addStretch(1)
         
@@ -157,6 +171,10 @@ class CameraPanel(CollapsibleSection):
             cam_idx = self.combo_camera.itemData(index)
             if cam_idx != -1:
                 self.thread.switch_camera(cam_idx)
+
+    def update_format(self, format_text: str):
+        """Update the video format (MJPG, YUYV, Auto)."""
+        self.thread.set_format(format_text)
 
     def update_camera_info(self, info: str):
         """Update the camera info label with active resolution + format."""
@@ -170,6 +188,11 @@ class CameraPanel(CollapsibleSection):
         """Update camera focus setting (0 = Auto)."""
         self.thread.set_focus(float(val))
         
+    def _on_hw_settings_clicked(self):
+        """Open the native camera driver settings dialog."""
+        if self.thread:
+            self.thread.open_hardware_settings()
+
     def update_zoom(self, val: float):
         """Update digital zoom level."""
         self.thread.set_zoom(val)
@@ -215,6 +238,7 @@ class CameraPanel(CollapsibleSection):
         
     def reset_camera_settings(self):
         """Reset all camera settings to default values."""
+        self.combo_format.setCurrentText("Auto")
         # Reset sliders to default values
         self.slider_exposure.setValue(-5.0)
         self.slider_focus.setValue(0.0)

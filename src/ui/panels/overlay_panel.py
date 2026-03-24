@@ -39,13 +39,21 @@ class OverlayPanel(CollapsibleSection):
         self.chk_global_offset.setChecked(True)
         self.chk_global_offset.stateChanged.connect(self.toggle_global_offset)
         
-        self.lbl_off_x = QLabel("Center X:")
+        self.lbl_off_x = QLabel("Center X (Relative):")
         self.slider_off_x = SliderSpinbox(-2000, 2000, 0, decimals=2)
         self.slider_off_x.valueChanged.connect(self.update_offset_x)
 
-        self.lbl_off_y = QLabel("Center Y:")
+        self.lbl_off_y = QLabel("Center Y (Relative):")
         self.slider_off_y = SliderSpinbox(-2000, 2000, 0, decimals=2)
         self.slider_off_y.valueChanged.connect(self.update_offset_y)
+        
+        self.lbl_abs_x = QLabel("Center X (Absolute):")
+        self.spin_abs_x = SliderSpinbox(0, 4000, 1920, decimals=2)
+        self.spin_abs_x.valueChanged.connect(self.update_abs_x)
+
+        self.lbl_abs_y = QLabel("Center Y (Absolute):")
+        self.spin_abs_y = SliderSpinbox(0, 4000, 1080, decimals=2)
+        self.spin_abs_y.valueChanged.connect(self.update_abs_y)
         
         # Store current offset values for restore
         self._stored_offset_x = 0
@@ -81,6 +89,10 @@ class OverlayPanel(CollapsibleSection):
         self.addWidget(self.slider_off_x)
         self.addWidget(self.lbl_off_y)
         self.addWidget(self.slider_off_y)
+        self.addWidget(self.lbl_abs_x)
+        self.addWidget(self.spin_abs_x)
+        self.addWidget(self.lbl_abs_y)
+        self.addWidget(self.spin_abs_y)
         self.addSpacing(10)
         self.addWidget(self.lbl_list)
         self.addWidget(self.list_circles)
@@ -196,6 +208,10 @@ class OverlayPanel(CollapsibleSection):
         self.slider_off_y.setEnabled(enabled)
         self.lbl_off_x.setEnabled(enabled)
         self.lbl_off_y.setEnabled(enabled)
+        self.spin_abs_x.setEnabled(enabled)
+        self.spin_abs_y.setEnabled(enabled)
+        self.lbl_abs_x.setEnabled(enabled)
+        self.lbl_abs_y.setEnabled(enabled)
         
         if enabled:
             # Restore stored offsets
@@ -212,11 +228,29 @@ class OverlayPanel(CollapsibleSection):
         self._stored_offset_x = val
         if self.chk_global_offset.isChecked():
             self.thread.set_global_offset_x(val)
+        if hasattr(self.thread, 'actual_w') and self.thread.actual_w > 0:
+            self.spin_abs_x.blockSignals(True)
+            self.spin_abs_x.setValue((self.thread.actual_w / 2.0) + val)
+            self.spin_abs_x.blockSignals(False)
         
     def update_offset_y(self, val: float):
         self._stored_offset_y = val
         if self.chk_global_offset.isChecked():
             self.thread.set_global_offset_y(val)
+        if hasattr(self.thread, 'actual_h') and self.thread.actual_h > 0:
+            self.spin_abs_y.blockSignals(True)
+            self.spin_abs_y.setValue((self.thread.actual_h / 2.0) + val)
+            self.spin_abs_y.blockSignals(False)
+            
+    def update_abs_x(self, val: float):
+        if hasattr(self.thread, 'actual_w') and self.thread.actual_w > 0:
+            rel_val = val - (self.thread.actual_w / 2.0)
+            self.slider_off_x.setValue(rel_val)
+            
+    def update_abs_y(self, val: float):
+        if hasattr(self.thread, 'actual_h') and self.thread.actual_h > 0:
+            rel_val = val - (self.thread.actual_h / 2.0)
+            self.slider_off_y.setValue(rel_val)
     
     def _on_global_offset_changed(self, offset_x: float, offset_y: float):
         """Slot called when thread emits global_offset_changed signal."""
@@ -227,6 +261,16 @@ class OverlayPanel(CollapsibleSection):
         # Update slider values
         self.slider_off_x.setValue(offset_x)
         self.slider_off_y.setValue(offset_y)
+        
+        if hasattr(self.thread, 'actual_w') and self.thread.actual_w > 0:
+            self.spin_abs_x.blockSignals(True)
+            self.spin_abs_x.setValue((self.thread.actual_w / 2.0) + offset_x)
+            self.spin_abs_x.blockSignals(False)
+            
+        if hasattr(self.thread, 'actual_h') and self.thread.actual_h > 0:
+            self.spin_abs_y.blockSignals(True)
+            self.spin_abs_y.setValue((self.thread.actual_h / 2.0) + offset_y)
+            self.spin_abs_y.blockSignals(False)
         
         # Update stored values
         self._stored_offset_x = offset_x
