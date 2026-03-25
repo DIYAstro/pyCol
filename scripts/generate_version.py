@@ -1,6 +1,37 @@
 import json
 import os
 import sys
+import subprocess
+import re
+
+def get_git_version():
+    """Retrieve version from git tags if available."""
+    try:
+        # Get something like "0.9.0-4-g201a444" or "0.9.0" or "0.9.0-dirty"
+        cmd = ["git", "describe", "--tags", "--always", "--dirty"]
+        version = subprocess.check_output(cmd, stderr=subprocess.DEVNULL).decode("utf-8").strip()
+        
+        # Remove leading 'v' if present
+        if version.startswith('v'):
+            version = version[1:]
+        return version
+    except Exception:
+        return None
+
+def parse_numeric_version(version_str):
+    """Extract (Major, Minor, Patch, Build) from a version string."""
+    match = re.search(r"(\d+)\.(\d+)\.(\d+)", version_str)
+    if match:
+        major, minor, patch = map(int, match.groups())
+        build = 0
+        
+        # Extract build number from git describe pattern (e.g., -4-g...)
+        build_match = re.search(r"-(\d+)-", version_str)
+        if build_match:
+            build = int(build_match.group(1))
+            
+        return (major, minor, patch, build)
+    return (0, 0, 0, 0)
 
 def generate_version_files():
     # Paths
@@ -15,7 +46,7 @@ def generate_version_files():
     if not os.path.exists(build_dir):
         os.makedirs(build_dir)
 
-    # Read versioninfo.json
+    # Read versioninfo.json for fallback info and strings
     try:
         with open(version_json_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
@@ -26,29 +57,37 @@ def generate_version_files():
         print(f"ERROR: Failed to parse {version_json_path}: {e}")
         sys.exit(1)
 
-    # Extract info
+    # Extract base info
     string_info = data.get('StringFileInfo', {})
-    version_str = string_info.get('ProductVersion', '0.0.0')
     company = string_info.get('CompanyName', '')
     copyright_str = string_info.get('LegalCopyright', '')
     product_name = string_info.get('ProductName', 'pyCol')
-    
-    fixed_info = data.get('FixedFileInfo', {})
-    file_version_tuple = (
-        fixed_info.get('FileVersion', {}).get('Major', 0),
-        fixed_info.get('FileVersion', {}).get('Minor', 0),
-        fixed_info.get('FileVersion', {}).get('Patch', 0),
-        fixed_info.get('FileVersion', {}).get('Build', 0)
-    )
-    product_version_tuple = (
-        fixed_info.get('ProductVersion', {}).get('Major', 0),
-        fixed_info.get('ProductVersion', {}).get('Minor', 0),
-        fixed_info.get('ProductVersion', {}).get('Patch', 0),
-        fixed_info.get('ProductVersion', {}).get('Build', 0)
-    )
-
     description = string_info.get('FileDescription', '')
     
+    # Try Git first, fallback to JSON
+    git_ver = get_git_version()
+    if git_ver:
+        version_str = git_ver
+        file_version_tuple = parse_numeric_version(git_ver)
+        product_version_tuple = file_version_tuple
+        print(f"Using Git version: {version_str} {file_version_tuple}")
+    else:
+        version_str = string_info.get('ProductVersion', '0.0.0')
+        fixed_info = data.get('FixedFileInfo', {})
+        file_version_tuple = (
+            fixed_info.get('FileVersion', {}).get('Major', 0),
+            fixed_info.get('FileVersion', {}).get('Minor', 0),
+            fixed_info.get('FileVersion', {}).get('Patch', 0),
+            fixed_info.get('FileVersion', {}).get('Build', 0)
+        )
+        product_version_tuple = (
+            fixed_info.get('ProductVersion', {}).get('Major', 0),
+            fixed_info.get('ProductVersion', {}).get('Minor', 0),
+            fixed_info.get('ProductVersion', {}).get('Patch', 0),
+            fixed_info.get('ProductVersion', {}).get('Build', 0)
+        )
+        print(f"Using fallback JSON version: {version_str}")
+
     # Extract enabled plugins for runtime info
     plugins_dict = data.get('Plugins', {})
     enabled_plugins = [k for k, v in plugins_dict.items() if v]
@@ -56,7 +95,7 @@ def generate_version_files():
     # 1. Generate src/__version__.py
     print(f"Generating {src_version_path}...")
     with open(src_version_path, 'w', encoding='utf-8') as f:
-        f.write("# Auto-generated from versioninfo.json - DO NOT EDIT\n")
+        f.write("# Auto-generated from versioninfo.json/Git - DO NOT EDIT\n")
         f.write(f'__version__ = "{version_str}"\n')
         f.write(f'__app_name__ = "{product_name}"\n')
         f.write(f'__description__ = "{description}"\n')
