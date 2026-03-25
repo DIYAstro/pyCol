@@ -136,6 +136,10 @@ class CameraPanel(CollapsibleSection):
         self.btn_hw_settings = QPushButton("Open Driver Settings", self)
         self.btn_hw_settings.setToolTip("Open the native Windows camera settings dialog (DirectShow) to force formats manually.")
         self.btn_hw_settings.clicked.connect(self._on_hw_settings_clicked)
+
+        # Hide on non-Windows platforms (e.g., Linux/macOS)
+        if sys.platform != 'win32':
+            self.btn_hw_settings.setVisible(False)
         
         # Add widgets to content layout (layout inherited from CollapsibleSection)
         self.addWidget(self.lbl_cam_select)
