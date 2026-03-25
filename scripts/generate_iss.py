@@ -1,20 +1,40 @@
-#!/usr/bin/env python3
-"""
-Generate Inno Setup script with version info from versioninfo.json.
-"""
 import json
+import subprocess
+import re
 from pathlib import Path
+
+
+def get_git_version():
+    """Retrieve version from git tags if available."""
+    try:
+        cmd = ["git", "describe", "--tags", "--always"]
+        version = subprocess.check_output(cmd, stderr=subprocess.DEVNULL).decode("utf-8").strip()
+        if version.startswith('v'):
+            version = version[1:]
+        # Extract base version (X.Y.Z) for the installer filename
+        match = re.search(r"(\d+\.\d+\.\d+)", version)
+        return match.group(1) if match else version
+    except Exception:
+        return None
 
 
 def main():
     project_root = Path(__file__).parent.parent
     
-    # Load version info
+    # Load fallback info from JSON
     with open(project_root / 'versioninfo.json', 'r', encoding='utf-8') as f:
         data = json.load(f)
     
-    fixed = data['FixedFileInfo']['ProductVersion']
-    version = f"{fixed['Major']}.{fixed['Minor']}.{fixed['Patch']}"
+    # Try Git version first, then fallback
+    git_ver = get_git_version()
+    if git_ver:
+        version = git_ver
+        print(f"Using Git version for ISS: {version}")
+    else:
+        fixed = data['FixedFileInfo']['ProductVersion']
+        version = f"{fixed['Major']}.{fixed['Minor']}.{fixed['Patch']}"
+        print(f"Fallback to JSON version for ISS: {version}")
+    
     string_info = data['StringFileInfo']
     
     # Read template
