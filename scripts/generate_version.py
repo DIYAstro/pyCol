@@ -169,7 +169,8 @@ VSVersionInfo(
             # Dest: plugins/{name}
             # Separator for --add-data is ';' on Windows and ':' on Linux
             sep = os.pathsep
-            args.append(f'--add-data "src/plugins/{plugin_name}{sep}plugins/{plugin_name}"')
+            # Removed explicit quotation marks to allow seamless expansion in Bash & CMD
+            args.append(f'--add-data src/plugins/{plugin_name}{sep}plugins/{plugin_name}')
             print(f"  [+] Enabling plugin: {plugin_name}")
         else:
             print(f"  [-] Skipping plugin: {plugin_name}")

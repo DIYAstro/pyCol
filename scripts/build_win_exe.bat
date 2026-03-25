@@ -13,7 +13,12 @@ rmdir /s /q build 2>nul
 rmdir /s /q dist 2>nul
 
 echo.
-echo [2/5] Generating version files from versioninfo.json...
+echo [2/6] Installing dependencies...
+pip install -r requirements.txt --quiet
+pip install pyinstaller Pillow --quiet
+
+echo.
+echo [3/6] Generating version files from versioninfo.json...
 python scripts\generate_version.py
 if errorlevel 1 (
     echo ERROR: Version generation failed!
@@ -22,7 +27,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo [3/5] Generating Icon...
+echo [4/6] Generating Icon...
 python scripts\generate_icon.py
 if errorlevel 1 (
     echo ERROR: Icon generation failed!
@@ -31,12 +36,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo [4/5] Installing dependencies...
-pip install -r requirements.txt --quiet
-pip install pyinstaller Pillow --quiet
-
-echo.
-echo [5/5] Reading Plugin Configuration...
+echo [5/6] Reading Plugin Configuration...
 set /p PLUGIN_ARGS=<build\pyinstaller_args.txt
 echo Plugins: %PLUGIN_ARGS%
 
