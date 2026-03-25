@@ -32,6 +32,7 @@ if errorlevel 1 (
 
 echo.
 echo [4/5] Installing dependencies...
+pip install -r requirements.txt --quiet
 pip install pyinstaller Pillow --quiet
 
 echo.
