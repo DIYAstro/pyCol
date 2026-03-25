@@ -78,6 +78,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
+          generate_release_notes: true
           files: |
             artifacts/pyCol-Linux-AppImage/*.AppImage
             artifacts/pyCol-Windows-Packages/*.exe
